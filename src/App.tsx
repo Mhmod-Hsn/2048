@@ -8,6 +8,7 @@ import {
 } from "./gameLogic";
 import { useGameControls } from "./hooks/useGameControls";
 import type { Direction, Tile } from "./types";
+import { soundEffects } from "./utils/sound";
 
 export default function App() {
 	const [tiles, setTiles] = useState<Tile[]>(() =>
@@ -21,6 +22,12 @@ export default function App() {
 	const [gameOver, setGameOver] = useState(false);
 	const [gameWon, setGameWon] = useState(false);
 	const [hasWon, setHasWon] = useState(false);
+	const [isMuted, setIsMuted] = useState(() => soundEffects.isMuted());
+
+	const toggleSound = () => {
+		const next = soundEffects.toggleMuted();
+		setIsMuted(next);
+	};
 
 
 	// Clean up animation flags after transitions end
@@ -50,6 +57,7 @@ export default function App() {
 				let scoreIncrease = 0;
 				const newTiles: Tile[] = [];
 				const destroyingTiles: Tile[] = [];
+				const mergedValues: number[] = [];
 
 				const grid: (Tile | null)[][] = Array(GRID_SIZE)
 					.fill(null)
@@ -84,6 +92,7 @@ export default function App() {
 
 								nextTile.value *= 2;
 								nextTile.isMerged = true;
+								mergedValues.push(nextTile.value);
 
 								tile.r = nextTile.r;
 								tile.c = nextTile.c;
@@ -129,9 +138,14 @@ export default function App() {
 
 				if (!hasWon && finalTiles.some((t) => t.value === WIN_TILE)) {
 					setGameWon(true);
+					soundEffects.playVictoryFanfare();
+				} else if (mergedValues.length > 0) {
+					soundEffects.playMerge(Math.max(...mergedValues));
 				}
+
 				if (checkGameOver(finalTiles)) {
 					setGameOver(true);
+					soundEffects.playGameOver();
 				}
 
 				return finalTiles;
@@ -198,12 +212,40 @@ export default function App() {
 					<p className="text-[clamp(0.95rem,2.1vmin,1.8rem)] hidden sm:block font-medium">
 						Join the numbers to get to <strong className="text-[clamp(1.1rem,2.4vmin,2.1rem)]">2048!</strong>
 					</p>
-					<button
-						onClick={restartGame}
-						className="bg-[#8f7a66] hover:bg-[#9f8b77] text-white font-bold py-[clamp(0.6rem,1.3vmin,1.2rem)] px-[clamp(1.2rem,2.4vmin,2.4rem)] rounded-lg text-[clamp(1rem,2.2vmin,1.8rem)] transition-colors focus:ring-4 focus:ring-amber-900 outline-none cursor-pointer"
-					>
-						New Game
-					</button>
+					<div className="flex items-center gap-2 sm:gap-3">
+						<button
+							onClick={toggleSound}
+							aria-label={isMuted ? "Unmute sound" : "Mute sound"}
+							title={isMuted ? "Sound: Off" : "Sound: On"}
+							className="bg-[#8f7a66] hover:bg-[#9f8b77] text-white p-[clamp(0.6rem,1.3vmin,1.2rem)] rounded-lg transition-colors focus:ring-4 focus:ring-amber-900 outline-none cursor-pointer flex items-center justify-center aspect-square"
+						>
+							{isMuted ? (
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="currentColor"
+									className="w-[clamp(1.1rem,2.2vmin,1.8rem)] h-[clamp(1.1rem,2.2vmin,1.8rem)]"
+								>
+									<path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.5A2.25 2.25 0 002.25 9.75v4.5A2.25 2.25 0 004.5 16.5h1.94l4.5 4.5c.944.945 2.56.276 2.56-1.06V4.06zM17.78 9.22a.75.75 0 10-1.06 1.06L18.44 12l-1.72 1.72a.75.75 0 101.06 1.06l1.72-1.72 1.72 1.72a.75.75 0 101.06-1.06L20.56 12l1.72-1.72a.75.75 0 00-1.06-1.06l-1.72 1.72-1.72-1.72z" />
+								</svg>
+							) : (
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="currentColor"
+									className="w-[clamp(1.1rem,2.2vmin,1.8rem)] h-[clamp(1.1rem,2.2vmin,1.8rem)]"
+								>
+									<path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.5A2.25 2.25 0 002.25 9.75v4.5A2.25 2.25 0 004.5 16.5h1.94l4.5 4.5c.944.945 2.56.276 2.56-1.06V4.06zM18.584 5.106a.75.75 0 011.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 11-1.06-1.06 8.25 8.25 0 000-11.668.75.75 0 010-1.06zM15.932 7.757a.75.75 0 011.061 0 6 6 0 010 8.486.75.75 0 01-1.06-1.061 4.5 4.5 0 000-6.364.75.75 0 010-1.06z" />
+								</svg>
+							)}
+						</button>
+						<button
+							onClick={restartGame}
+							className="bg-[#8f7a66] hover:bg-[#9f8b77] text-white font-bold py-[clamp(0.6rem,1.3vmin,1.2rem)] px-[clamp(1.2rem,2.4vmin,2.4rem)] rounded-lg text-[clamp(1rem,2.2vmin,1.8rem)] transition-colors focus:ring-4 focus:ring-amber-900 outline-none cursor-pointer"
+						>
+							New Game
+						</button>
+					</div>
 				</div>
 
 				{/* Game Board Container */}
