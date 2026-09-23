@@ -7,31 +7,31 @@ interface UseGameControlsProps {
 
 export function useGameControls({ move }: UseGameControlsProps) {
 	const lastWheelTime = useRef(0);
-
-	// TV Air Remote / Mouse hover tracking:
-	// On TV Magic Remotes the cursor moves freely WITHOUT holding a button.
-	// We record the cursor's hover trajectory, then on click (OK/Select press)
-	// we look back at where it came from to infer the intended swipe direction.
 	const hoverHistory = useRef<{ x: number; y: number; t: number }[]>([]);
 	const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
 
 	useEffect(() => {
-		// Register Samsung Tizen remote keys if running on Tizen TV
+		// Register Samsung Tizen remote D-Pad keys (required on some Tizen versions)
 		try {
-			// @ts-expect-error Samsung Tizen key registration
-			if (typeof window !== "undefined" && window.tizen?.tvinputdevice?.registerKey) {
-				const keysToRegister = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter"];
-				keysToRegister.forEach((k) => {
+			// @ts-expect-error Samsung Tizen API
+			if (typeof window.tizen !== "undefined" && window.tizen?.tvinputdevice) {
+				["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].forEach((k) => {
 					try {
-						// @ts-expect-error Samsung Tizen key registration
+						// @ts-expect-error Samsung Tizen API
 						window.tizen.tvinputdevice.registerKey(k);
 					} catch {
-						// ignore if not supported
+						/* ignore */
 					}
 				});
 			}
 		} catch {
-			// ignore
+			/* ignore */
+		}
+
+		// Ensure page has focus so keyboard events are received.
+		// On TV browsers the page can lose focus to the browser chrome.
+		if (document.activeElement === document.body || !document.activeElement) {
+			document.body.focus();
 		}
 
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -39,115 +39,84 @@ export function useGameControls({ move }: UseGameControlsProps) {
 			const key = e.key;
 
 			const isUp =
-				key === "ArrowUp" ||
-				key === "Up" ||
-				key === "w" ||
-				key === "W" ||
-				key === "k" ||
-				key === "K" ||
-				code === 38 || // ArrowUp / WebOS / Tizen UP
-				code === 19; // Android TV DPAD_UP
+				key === "ArrowUp" || key === "Up" || key === "w" || key === "W" || key === "k" ||
+				code === 38 || code === 19; // 19 = Android DPAD_UP
 
 			const isDown =
-				key === "ArrowDown" ||
-				key === "Down" ||
-				key === "s" ||
-				key === "S" ||
-				key === "j" ||
-				key === "J" ||
-				code === 40 || // ArrowDown / WebOS / Tizen DOWN
-				code === 20; // Android TV DPAD_DOWN
+				key === "ArrowDown" || key === "Down" || key === "s" || key === "S" || key === "j" ||
+				code === 40 || code === 20; // 20 = Android DPAD_DOWN
 
 			const isLeft =
-				key === "ArrowLeft" ||
-				key === "Left" ||
-				key === "a" ||
-				key === "A" ||
-				key === "h" ||
-				key === "H" ||
-				code === 37 || // ArrowLeft / WebOS / Tizen LEFT
-				code === 21; // Android TV DPAD_LEFT
+				key === "ArrowLeft" || key === "Left" || key === "a" || key === "A" || key === "h" ||
+				code === 37 || code === 21; // 21 = Android DPAD_LEFT
 
 			const isRight =
-				key === "ArrowRight" ||
-				key === "Right" ||
-				key === "d" ||
-				key === "D" ||
-				key === "l" ||
-				key === "L" ||
-				code === 39 || // ArrowRight / WebOS / Tizen RIGHT
-				code === 22; // Android TV DPAD_RIGHT
+				key === "ArrowRight" || key === "Right" || key === "d" || key === "D" || key === "l" ||
+				code === 39 || code === 22; // 22 = Android DPAD_RIGHT
 
-			if (isUp || isDown || isLeft || isRight || key === " " || code === 32) {
+			if (isUp || isDown || isLeft || isRight) {
+				// Stop the TV browser from using this event for spatial navigation
 				e.preventDefault();
-				e.stopPropagation();
-			}
+				e.stopImmediatePropagation();
 
-			if (isUp) {
-				move("UP");
-			} else if (isDown) {
-				move("DOWN");
-			} else if (isLeft) {
-				move("LEFT");
-			} else if (isRight) {
-				move("RIGHT");
+				if (isUp) move("UP");
+				else if (isDown) move("DOWN");
+				else if (isLeft) move("LEFT");
+				else if (isRight) move("RIGHT");
 			}
 		};
 
-		// Support TV Magic Remote scroll wheel / trackpad swipe
+		// Scroll wheel / TV Magic Remote trackpad
 		const handleWheel = (e: WheelEvent) => {
 			e.preventDefault();
 			const now = Date.now();
-			if (now - lastWheelTime.current < 200) return; // throttle
+			if (now - lastWheelTime.current < 200) return;
 
 			if (Math.abs(e.deltaY) > 20) {
 				lastWheelTime.current = now;
-				if (e.deltaY < 0) move("UP");
-				else move("DOWN");
+				move(e.deltaY < 0 ? "UP" : "DOWN");
 			} else if (Math.abs(e.deltaX) > 20) {
 				lastWheelTime.current = now;
-				if (e.deltaX < 0) move("LEFT");
-				else move("RIGHT");
+				move(e.deltaX < 0 ? "LEFT" : "RIGHT");
 			}
 		};
 
-		// Record hover positions so we can infer direction for TV Air Remote clicks.
-		// The remote moves the cursor WITHOUT holding any button, so we track it
-		// passively and read the trajectory when the OK/Select button is pressed.
+		// Track hover positions for TV Air Remote direction inference.
+		// Air-remote cursors move WITHOUT holding any button, so we read
+		// the trajectory and infer direction when the OK/Select is pressed.
 		const handleMouseMove = (e: MouseEvent) => {
 			if (e.buttons !== 0) return; // skip real drags
 			const now = Date.now();
 			hoverHistory.current.push({ x: e.clientX, y: e.clientY, t: now });
-			// Keep only the last 500 ms of history
 			const cutoff = now - 500;
 			hoverHistory.current = hoverHistory.current.filter((p) => p.t > cutoff);
 		};
 
-		window.addEventListener("keydown", handleKeyDown, { passive: false });
-		window.addEventListener("wheel", handleWheel, { passive: false });
-		window.addEventListener("mousemove", handleMouseMove, { passive: true });
+		// Use capture:true so we intercept in the capture phase,
+		// BEFORE the TV browser's spatial navigation engine handles it.
+		document.addEventListener("keydown", handleKeyDown, { capture: true, passive: false });
+		document.addEventListener("wheel", handleWheel, { capture: true, passive: false });
+		document.addEventListener("mousemove", handleMouseMove, { passive: true });
 
 		return () => {
-			window.removeEventListener("keydown", handleKeyDown);
-			window.removeEventListener("wheel", handleWheel);
-			window.removeEventListener("mousemove", handleMouseMove);
+			document.removeEventListener("keydown", handleKeyDown, { capture: true });
+			document.removeEventListener("wheel", handleWheel, { capture: true });
+			document.removeEventListener("mousemove", handleMouseMove);
 		};
 	}, [move]);
 
-	// Infer swipe direction from the hover history leading up to a click
+	// Infer swipe direction from hover history leading up to a click
 	const inferDirectionFromHover = useCallback(
 		(clickX: number, clickY: number): Direction | null => {
 			const history = hoverHistory.current;
 			if (history.length < 2) return null;
 
-			// Compare the earliest recent position to the click position
 			const start = history[0];
 			const deltaX = clickX - start.x;
 			const deltaY = clickY - start.y;
 			const absX = Math.abs(deltaX);
 			const absY = Math.abs(deltaY);
 
-			// Require at least 15 px of movement to avoid accidental triggers
 			if (Math.max(absX, absY) < 15) return null;
 
 			if (absX > absY) return deltaX > 0 ? "RIGHT" : "LEFT";
@@ -165,13 +134,12 @@ export function useGameControls({ move }: UseGameControlsProps) {
 		try {
 			e.currentTarget.setPointerCapture(e.pointerId);
 		} catch {
-			// ignore if not supported
+			/* ignore */
 		}
 	}, []);
 
 	const onPointerMove = useCallback(
 		(e: React.PointerEvent<HTMLElement>) => {
-			// Only react when a button is actually held (real drag, not air-remote hover)
 			if (e.buttons === 0 || pointerDownPos.current === null) return;
 
 			const deltaX = e.clientX - pointerDownPos.current.x;
@@ -183,14 +151,14 @@ export function useGameControls({ move }: UseGameControlsProps) {
 				if (absX > absY) move(deltaX > 0 ? "RIGHT" : "LEFT");
 				else move(deltaY > 0 ? "DOWN" : "UP");
 
-				pointerDownPos.current = null; // consume — prevent repeat
+				pointerDownPos.current = null;
 				hoverHistory.current = [];
 				try {
 					if (e.currentTarget.hasPointerCapture(e.pointerId)) {
 						e.currentTarget.releasePointerCapture(e.pointerId);
 					}
 				} catch {
-					// ignore
+					/* ignore */
 				}
 			}
 		},
@@ -218,8 +186,7 @@ export function useGameControls({ move }: UseGameControlsProps) {
 					if (absX > absY) move(deltaX > 0 ? "RIGHT" : "LEFT");
 					else move(deltaY > 0 ? "DOWN" : "UP");
 				} else {
-					// TV Air Remote: pointer barely moved while button was held,
-					// so infer direction from the hover trajectory before the click
+					// TV Air Remote: infer from hover trajectory
 					const dir = inferDirectionFromHover(e.clientX, e.clientY);
 					if (dir) move(dir);
 				}
@@ -227,13 +194,12 @@ export function useGameControls({ move }: UseGameControlsProps) {
 
 			pointerDownPos.current = null;
 			hoverHistory.current = [];
-
 			try {
 				if (e.currentTarget.hasPointerCapture(e.pointerId)) {
 					e.currentTarget.releasePointerCapture(e.pointerId);
 				}
 			} catch {
-				// ignore
+				/* ignore */
 			}
 		},
 		[move, inferDirectionFromHover],
@@ -247,7 +213,7 @@ export function useGameControls({ move }: UseGameControlsProps) {
 				e.currentTarget.releasePointerCapture(e.pointerId);
 			}
 		} catch {
-			// ignore
+			/* ignore */
 		}
 	}, []);
 

@@ -170,7 +170,11 @@ export default function App() {
 
 	return (
 		<div
-			className="min-h-screen bg-[#faf8ef] flex flex-col items-center justify-center p-3 sm:p-4 font-sans select-none text-[#776e65] overflow-hidden"
+			tabIndex={0}
+			// autoFocus keeps keyboard focus on the game so TV D-Pad events are received
+			// eslint-disable-next-line
+			autoFocus
+			className="min-h-screen bg-[#faf8ef] flex flex-col items-center justify-center p-3 sm:p-4 font-sans select-none text-[#776e65] overflow-hidden outline-none"
 			style={{ touchAction: "none" }}
 			onPointerDown={pointerHandlers.onPointerDown}
 			onPointerMove={pointerHandlers.onPointerMove}
