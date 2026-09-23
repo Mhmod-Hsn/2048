@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { GRID_SIZE, WIN_TILE, getTileColor, getTileFontSize } from "./constants";
+import { useCallback, useEffect, useState } from "react";
+import {
+	GRID_SIZE,
+	WIN_TILE,
+	getTileColor,
+	getTileFontSize,
+} from "./constants";
 import {
 	addRandomTile,
 	checkGameOver,
@@ -28,7 +33,6 @@ export default function App() {
 		const next = soundEffects.toggleMuted();
 		setIsMuted(next);
 	};
-
 
 	// Clean up animation flags after transitions end
 	useEffect(() => {
@@ -154,25 +158,7 @@ export default function App() {
 		[gameOver, gameWon, hasWon],
 	);
 
-	useGameControls({ move });
-
-	const touchStart = useRef({ x: 0, y: 0 });
-	const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-		touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-	};
-	const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-		if (!touchStart.current.x) return;
-		const deltaX = e.changedTouches[0].clientX - touchStart.current.x;
-		const deltaY = e.changedTouches[0].clientY - touchStart.current.y;
-		const absX = Math.abs(deltaX);
-		const absY = Math.abs(deltaY);
-		if (Math.max(absX, absY) > 30) {
-			// minimum swipe distance
-			if (absX > absY) move(deltaX > 0 ? "RIGHT" : "LEFT");
-			else move(deltaY > 0 ? "DOWN" : "UP");
-		}
-		touchStart.current = { x: 0, y: 0 };
-	};
+	const { pointerHandlers } = useGameControls({ move });
 
 	const restartGame = () => {
 		setTiles(addRandomTile(addRandomTile([])));
@@ -184,33 +170,47 @@ export default function App() {
 
 	return (
 		<div
-			className="min-h-screen bg-[#faf8ef] flex flex-col items-center justify-center p-4 font-sans select-none text-[#776e65] overflow-hidden"
-			onTouchStart={handleTouchStart}
-			onTouchEnd={handleTouchEnd}
+			className="min-h-screen bg-[#faf8ef] flex flex-col items-center justify-center p-3 sm:p-4 font-sans select-none text-[#776e65] overflow-hidden"
+			style={{ touchAction: "none" }}
+			onPointerDown={pointerHandlers.onPointerDown}
+			onPointerMove={pointerHandlers.onPointerMove}
+			onPointerUp={pointerHandlers.onPointerUp}
+			onPointerCancel={pointerHandlers.onPointerCancel}
+			onContextMenu={(e) => e.preventDefault()}
+			onDragStart={(e) => e.preventDefault()}
 		>
-			<div className="w-full max-w-[min(90vw,70vh)] flex flex-col items-center">
+			<div className="w-full max-w-[min(90vw,60vh)] flex flex-col items-center">
 				{/* Header Section */}
 				<div className="w-full mb-6 sm:mb-8 flex justify-between items-center">
-					<h1 className="text-[clamp(3.5rem,7.5vmin,6.5rem)] font-bold leading-none">2048</h1>
+					<h1 className="text-[clamp(3.5rem,7.5vmin,6.5rem)] font-bold leading-none">
+						2048
+					</h1>
 					<div className="flex gap-2 sm:gap-3 text-white">
 						<div className="bg-[#bbada0] rounded-lg p-[clamp(0.5rem,1.2vmin,1.1rem)] text-center min-w-[clamp(70px,11vmin,125px)]">
 							<div className="text-[clamp(0.7rem,1.4vmin,1.1rem)] font-bold uppercase text-[#eee4da]">
 								Score
 							</div>
-							<div className="text-[clamp(1.4rem,3vmin,2.8rem)] font-bold leading-tight">{score}</div>
+							<div className="text-[clamp(1.4rem,3vmin,2.8rem)] font-bold leading-tight">
+								{score}
+							</div>
 						</div>
 						<div className="bg-[#bbada0] rounded-lg p-[clamp(0.5rem,1.2vmin,1.1rem)] text-center min-w-[clamp(70px,11vmin,125px)]">
 							<div className="text-[clamp(0.7rem,1.4vmin,1.1rem)] font-bold uppercase text-[#eee4da]">
 								Best
 							</div>
-							<div className="text-[clamp(1.4rem,3vmin,2.8rem)] font-bold leading-tight">{bestScore}</div>
+							<div className="text-[clamp(1.4rem,3vmin,2.8rem)] font-bold leading-tight">
+								{bestScore}
+							</div>
 						</div>
 					</div>
 				</div>
 
 				<div className="w-full mb-4 sm:mb-6 flex justify-between items-center">
 					<p className="text-[clamp(0.95rem,2.1vmin,1.8rem)] hidden sm:block font-medium">
-						Join the numbers to get to <strong className="text-[clamp(1.1rem,2.4vmin,2.1rem)]">2048!</strong>
+						Join the numbers to get to{" "}
+						<strong className="text-[clamp(1.1rem,2.4vmin,2.1rem)]">
+							2048!
+						</strong>
 					</p>
 					<div className="flex items-center gap-2 sm:gap-3">
 						<button
@@ -251,7 +251,9 @@ export default function App() {
 				{/* Game Board Container */}
 				<div
 					className="relative bg-[#bbada0] p-[clamp(0.75rem,1.8vmin,1.6rem)] rounded-xl sm:rounded-2xl w-full aspect-square shadow-2xl"
-					style={{ "--gap": "clamp(0.6rem, 1.8vmin, 1.5rem)" } as React.CSSProperties} // Configurable gap variable controlling board scaling
+					style={
+						{ "--gap": "clamp(0.6rem, 1.8vmin, 1.5rem)" } as React.CSSProperties
+					} // Configurable gap variable controlling board scaling
 				>
 					{/* Static Background Empty Grid */}
 					<div
@@ -319,10 +321,110 @@ export default function App() {
 					)}
 				</div>
 
-				<div className="mt-6 sm:mt-8 text-center text-[clamp(0.95rem,2vmin,1.75rem)] text-[#776e65] font-medium w-full opacity-70">
+				{/* On-Screen Directional Controls (D-Pad) for TV Remote Pointer & Mouse */}
+				<div className="mt-4 sm:mt-5 flex flex-col items-center select-none pointer-events-auto">
+					<button
+						type="button"
+						onClick={(e) => {
+							e.stopPropagation();
+							move("UP");
+						}}
+						aria-label="Move Up"
+						title="Move Up"
+						className="w-[clamp(2.75rem,5.5vmin,3.5rem)] h-[clamp(2.25rem,4.5vmin,2.75rem)] bg-[#bbada0] hover:bg-[#8f7a66] active:scale-95 text-white rounded-lg shadow transition-all cursor-pointer flex items-center justify-center focus:ring-2 focus:ring-amber-900 outline-none"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+							className="w-[clamp(1.2rem,2.5vmin,1.6rem)] h-[clamp(1.2rem,2.5vmin,1.6rem)]"
+						>
+							<path
+								fillRule="evenodd"
+								d="M11.47 7.72a.75.75 0 011.06 0l7.5 7.5a.75.75 0 11-1.06 1.06L12 9.31l-6.97 6.97a.75.75 0 01-1.06-1.06l7.5-7.5z"
+								clipRule="evenodd"
+							/>
+						</svg>
+					</button>
+					<div className="flex gap-[clamp(2.5rem,5vmin,3.5rem)] my-1 sm:my-1.5">
+						<button
+							type="button"
+							onClick={(e) => {
+								e.stopPropagation();
+								move("LEFT");
+							}}
+							aria-label="Move Left"
+							title="Move Left"
+							className="w-[clamp(2.75rem,5.5vmin,3.5rem)] h-[clamp(2.25rem,4.5vmin,2.75rem)] bg-[#bbada0] hover:bg-[#8f7a66] active:scale-95 text-white rounded-lg shadow transition-all cursor-pointer flex items-center justify-center focus:ring-2 focus:ring-amber-900 outline-none"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="currentColor"
+								className="w-[clamp(1.2rem,2.5vmin,1.6rem)] h-[clamp(1.2rem,2.5vmin,1.6rem)]"
+							>
+								<path
+									fillRule="evenodd"
+									d="M7.72 12.53a.75.75 0 010-1.06l7.5-7.5a.75.75 0 111.06 1.06L9.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5z"
+									clipRule="evenodd"
+								/>
+							</svg>
+						</button>
+						<button
+							type="button"
+							onClick={(e) => {
+								e.stopPropagation();
+								move("RIGHT");
+							}}
+							aria-label="Move Right"
+							title="Move Right"
+							className="w-[clamp(2.75rem,5.5vmin,3.5rem)] h-[clamp(2.25rem,4.5vmin,2.75rem)] bg-[#bbada0] hover:bg-[#8f7a66] active:scale-95 text-white rounded-lg shadow transition-all cursor-pointer flex items-center justify-center focus:ring-2 focus:ring-amber-900 outline-none"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="currentColor"
+								className="w-[clamp(1.2rem,2.5vmin,1.6rem)] h-[clamp(1.2rem,2.5vmin,1.6rem)]"
+							>
+								<path
+									fillRule="evenodd"
+									d="M16.28 11.47a.75.75 0 010 1.06l-7.5 7.5a.75.75 0 01-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 011.06-1.06l7.5 7.5z"
+									clipRule="evenodd"
+								/>
+							</svg>
+						</button>
+					</div>
+					<button
+						type="button"
+						onClick={(e) => {
+							e.stopPropagation();
+							move("DOWN");
+						}}
+						aria-label="Move Down"
+						title="Move Down"
+						className="w-[clamp(2.75rem,5.5vmin,3.5rem)] h-[clamp(2.25rem,4.5vmin,2.75rem)] bg-[#bbada0] hover:bg-[#8f7a66] active:scale-95 text-white rounded-lg shadow transition-all cursor-pointer flex items-center justify-center focus:ring-2 focus:ring-amber-900 outline-none"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+							className="w-[clamp(1.2rem,2.5vmin,1.6rem)] h-[clamp(1.2rem,2.5vmin,1.6rem)]"
+						>
+							<path
+								fillRule="evenodd"
+								d="M12.53 16.28a.75.75 0 01-1.06 0l-7.5-7.5a.75.75 0 111.06-1.06L12 14.69l6.97-6.97a.75.75 0 111.06 1.06l-7.5 7.5z"
+								clipRule="evenodd"
+							/>
+						</svg>
+					</button>
+				</div>
+
+				<div className="mt-3 sm:mt-4 text-center text-[clamp(0.85rem,1.8vmin,1.4rem)] text-[#776e65] font-medium w-full opacity-70">
 					<p>
-						Use <strong className="text-gray-800">Arrow Keys</strong>, D-Pad, or{" "}
-						<strong className="text-gray-800">Swipe</strong> to move tiles.
+						Use <strong className="text-gray-800">Arrow Keys</strong>,{" "}
+						<strong className="text-gray-800">D-Pad</strong>, or{" "}
+						<strong className="text-gray-800">Drag / Swipe</strong> to move
+						tiles.
 					</p>
 				</div>
 			</div>
